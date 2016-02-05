@@ -10,5 +10,8 @@ type 1
 http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_Satellite_London/master/PM25_sat_Heat.html
 
 type 2
+http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_Satellite_London/master/PM25_sat_Reds.html
 
+type 3
+http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_Satellite_London/master/PM25_sat_Blues.html
  
