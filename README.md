@@ -20,4 +20,7 @@ http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_S
 
 type 5
 http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_Satellite_London/master/prova.html
+
+type 5
+http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_Satellite_London/master/prova_new.html
  
