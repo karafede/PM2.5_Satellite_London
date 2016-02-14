@@ -22,5 +22,5 @@ type 5
 http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_Satellite_London/master/prova_new_2.html 
 
 type 6
-http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_Satellite_London/master/prova.html
+https://dl.dropboxusercontent.com/s/56gz9n1ezc0b8on/prova_PM25_sat_new.html?dl=0
 
