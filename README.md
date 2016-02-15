@@ -24,3 +24,6 @@ http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_S
 Last Version (complete for London)
 https://dl.dropboxusercontent.com/s/56gz9n1ezc0b8on/prova_PM25_sat_new.html?dl=0
 
+
+type 5
+http://htmlpreview.github.io/?https://raw.githubusercontent.com/karafede/PM2.5_Satellite_London/master/GWR_PM2.5_London.html
