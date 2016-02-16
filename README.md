@@ -1,4 +1,4 @@
-<strong>Last Version Geographycally Weighted Regression (GWR) PM2.5 from satellite
+<strong>Last Version Geographycally Weighted Regression (GWR) PM2.5 from satellite</strong><br>
 https://dl.dropboxusercontent.com/s/uaui26zlfvtvkhw/GWR_PM25_London.html?dl=0
 
 Previous version Version (complete for London)
