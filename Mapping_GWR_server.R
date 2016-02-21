@@ -36,6 +36,7 @@ shp <- spTransform(shp, CRS("+init=epsg:4326"))
 shp@data$name <- 1:nrow(shp)
 
 PM25_EN_SAT <- read.csv("PM25_EN_1km_2009_2011_interp.csv", header = TRUE)
+# Jan_2013_SAT <- subset(Jan_2013_SAT, !is.na(JAN2013) & JAN2013>0)
 PM25_EN_SAT_rast <- read.csv("PM25_UK_2009_2011_10km.csv", header = TRUE)
 
 PM25_UK_AIR <- read.csv("PM25_EN_AIR_AVG_2010_2012_interp.csv", header = TRUE)
@@ -44,12 +45,15 @@ Altitude <- read.csv("Altitude_EN_interp.csv", header = TRUE)
 Topography <- read.csv("Topography_EN_interp.csv", header = TRUE)
 ED <- Topography$TOPO_EN - Altitude$Altitude
 pcm_PM25 <- read.csv("PM25_pcm_EN_2009_2011_interp.csv", header = TRUE)
-
 cmaq_PM25 <- read.csv("PM25_CMAQ_2009_2011_EN_interp.csv",header = TRUE)
 cmaq_PM25_rast <- read.csv("PM25_CMAQ_2009_2011_10km.csv", header = TRUE)
 
-# GWR_PM25_URB <- read.csv("GWR_AOE_England_URB.csv", header = TRUE)
-# GWR_PM25 <- read.csv("", header = TRUE)
+GWR_PM25 <- read.csv("GWR_AOE_1km_England_ALL.csv", header = TRUE)
+GWR_PM25_rast <- read.csv("GWR_AOE_10km_England_ALL.csv", header = TRUE)
+GWR_PM25_rast <- cbind(GWR_PM25_rast$coord.x, GWR_PM25_rast$coord.y, 
+                       GWR_PM25_rast$AOE)
+colnames(GWR_PM25_rast) <- c("Lon", "Lat", "AOE")
+GWR_PM25_rast <- as.data.frame(GWR_PM25_rast)
 
 # PM25_UK_Sat <- read.csv("PM25_UK_1km_2009_2011_interp.csv", header = TRUE) 
 
@@ -62,9 +66,9 @@ crs <- projection(shp) ### get projections from shp file
 # colnames(PM25_London_Sat) <- c("Lon", "Lat", "PM25_1km", "PM25_UK_AIR",
 #                                "GWR_PM25_URB", "pcm_PM25", "cmaq_PM25")
 
-PM25_EN_Sat <- cbind(PM25_EN_SAT[,1:3], PM25_UK_AIR[,3], 
+PM25_EN_Sat <- cbind(PM25_EN_SAT[,1:3], PM25_UK_AIR[,3], GWR_PM25[,3],
                      pcm_PM25[,3], cmaq_PM25[,3])
-colnames(PM25_EN_Sat) <- c("Lon", "Lat", "PM25_1km", "PM25_UK_AIR",
+colnames(PM25_EN_Sat) <- c("Lon", "Lat", "PM25_1km", "PM25_UK_AIR", "GWR_PM25",
                                "pcm_PM25", "cmaq_PM25")
 
 #### create a raster for PM25 UK-AIR 1Km in England #######
@@ -80,8 +84,6 @@ PM25_UK_AIR_nc <- writeRaster(raster_PM25_UK_AIR,
                               filename="PM25_UK_AIR.nc",
                               format="CDF", overwrite=TRUE) 
 PM25_UK_AIR_nc <- raster("PM25_UK_AIR.nc")
-
-
 
 
 
@@ -101,6 +103,7 @@ PM25_EN_SAT_nc <- writeRaster(raster_PM25_EN_SAT_rast,
 PM25_EN_SAT_nc <- raster("PM25_EN_SAT_rast.nc")
 
 
+
 #### create a raster for URB land cover in England #######
 
 coordinates(URB_Cover) <- ~ Lon + Lat
@@ -116,23 +119,20 @@ URB_Cover_nc <- writeRaster(raster_URB_Cover,
 URB_Cover_nc <- raster("URB_Cover_London.nc")
 
 
-#### create a raster for GWR URBan only (Geographycally weighted regression) #######
 
-GWR_PM25_URB <- cbind(GWR_PM25_URB$coord.x, GWR_PM25_URB$coord.y, GWR_PM25_URB$AOE)
-colnames(GWR_PM25_URB) <- c("Lon", "Lat", "AOE")
-GWR_PM25_URB <- as.data.frame(GWR_PM25_URB)
-coordinates(GWR_PM25_URB) <- ~ Lon + Lat
+#### create a raster for GWR PM25 (Geographycally weighted regression) #######
+
+coordinates(GWR_PM25_rast) <- ~ Lon + Lat
 # coerce to SpatialPixelsDataFrame
-gridded(GWR_PM25_URB) <- TRUE
-raster_GWR_PM25_URB <- raster(GWR_PM25_URB)
-projection(raster_GWR_PM25_URB) <- CRS("+proj=longlat +datum=WGS84")
-plot(raster_GWR_PM25_URB)
+gridded(GWR_PM25_rast) <- TRUE
+raster_GWR_PM25 <- raster(GWR_PM25_rast)
+projection(raster_GWR_PM25) <- CRS("+proj=longlat +datum=WGS84")
+plot(raster_GWR_PM25)
 
-GWR_PM25_URB_nc <- writeRaster(raster_GWR_PM25_URB,
-                               filename="GWR_PM25_URB.nc",
-                               format="CDF", overwrite=TRUE) 
-GWR_PM25_URB_nc <- raster("GWR_PM25_URB.nc")
-
+GWR_PM25_nc <- writeRaster(raster_GWR_PM25,
+                            filename="GWR_PM25.nc",
+                            format="CDF", overwrite=TRUE) 
+GWR_PM25_nc <- raster("GWR_PM25.nc")
 
 
 
@@ -159,7 +159,7 @@ coordinates(cmaq_PM25_rast) <- ~ Lon + Lat
 gridded(cmaq_PM25_rast) <- TRUE
 raster_cmaq_PM25_rast <- raster(cmaq_PM25_rast)
 projection(raster_cmaq_PM25_rast) <- CRS("+proj=longlat +datum=WGS84")
-plot(raster_cmaq_PM25)
+plot(raster_cmaq_PM25_rast)
 
 cmaq_PM25_nc <- writeRaster(raster_cmaq_PM25_rast,
                             filename="cmaq_PM25_raster.nc",
@@ -198,7 +198,7 @@ Sat_data_points <- Sat_data_points %>%
   dplyr::group_by(id) %>% 
   dplyr::summarise(pm25_mean = mean(PM25_1km),
                    pm25_mean_UK_AIR = mean(PM25_UK_AIR),
-                   # pm25_mean_GWR_URB = mean(GWR_PM25_URB),
+                   pm25_mean_GWR = mean(GWR_PM25),
                    pm25_mean_pcm = mean(pcm_PM25),
                    pm25_mean_cmaq = mean(cmaq_PM25)) %>%
   dplyr::ungroup() ### comment if not using SpatialEco
@@ -218,7 +218,7 @@ writeOGR(shp,"Local Authorities_England",
          overwrite_layer = TRUE)
 
 Sat_data_points <- shp@data[,c("id","name","pm25_mean","pm25_mean_UK_AIR",
-                               "pm25_mean_pcm", "pm25_mean_cmaq")]
+                               "pm25_mean_GWR", "pm25_mean_pcm", "pm25_mean_cmaq")]
 row.names(Sat_data_points) <- row.names(shp)
 
 shp <- SpatialPolygonsDataFrame(shp, data=Sat_data_points)
@@ -226,7 +226,6 @@ shp <- SpatialPolygonsDataFrame(shp, data=Sat_data_points)
 #### Write GeoJSON for Leaflet application ############################
 # ----- Write data to GeoJSON
 
-# ----- Write data to GeoJSON
 dir <- "/SAN/data/Satellite_PM25"
 dir <- "C:/RICARDO-AEA/Donkelaar_1Km/server"
 leafdat<-paste(dir, "/",  ".ENGLAND_geojson_PM25_1km_Sat_2009_2011", sep="") 
@@ -244,8 +243,7 @@ map_PM25_sat <- leaflet(PM25_sat)
 #### colors for maps
 qpal_SAT <- colorQuantile("Reds", PM25_sat$pm25_mean, n = 50)
 qpal_UK_AIR <- colorQuantile("Reds", PM25_sat$pm25_mean_UK_AIR, n = 50)
-# qpal_GWR_URB <- colorQuantile("Reds", PM25_sat$pm25_mean_GWR_URB, n = 7)
-# qpal_GWR_URB_Ions <- colorQuantile("Reds", PM25_sat$pm25_mean_GWR, n = 7)
+qpal_GWR <- colorQuantile("Reds", PM25_sat$pm25_mean_GWR, n = 7)
 qpal_pcm <- colorQuantile("Reds", PM25_sat$pm25_mean_pcm, n = 7)
 qpal_cmaq <- colorQuantile("Reds", PM25_sat$pm25_mean_cmaq, n = 7)
 
@@ -259,14 +257,10 @@ pal_UK_AIR <- colorNumeric(
   palette = "Reds",
   domain = PM25_sat$pm25_mean_UK_AIR)
 
-# pal_GWR_URB <- colorNumeric(
-#   palette = "Reds",
-#   domain = PM25_sat$pm25_mean_GWR_URB)
-# 
-# pal_GWR_URB_Ions <- colorNumeric(
-#   palette = "Reds",
-#   domain = PM25_sat$pm25_mean_GWR)
-
+pal_GWR <- colorNumeric(
+   palette = "Reds",
+   domain = PM25_sat$pm25_mean_GWR)
+ 
 pal_pcm <- colorNumeric(
   palette = "Reds",
   domain = PM25_sat$pm25_mean_pcm)
@@ -279,13 +273,9 @@ pal_cmaq <- colorNumeric(
 pal_URB <- colorNumeric(c("#FFFFCC", "#41B6C4","#0C2C84"), getValues(URB_Cover_nc),
                         na.color = "transparent")
 ### colors for raster GWR_URB
-# pal_GWR_URB_rast <- colorNumeric(c("#9999FF", "#FFFF00","#FF0000"),
-#                                  getValues(GWR_PM25_URB_nc),na.color = "transparent")
-# 
-# ### colors for raster GWR_URB ions
-# pal_GWR_ions_rast <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "#FF0000", "#b30000"),
-#                                   getValues(GWR_PM25_nc),na.color = "transparent")
-
+pal_GWR_rast <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "#FF0000", "#b30000"),
+                    getValues(GWR_PM25_nc),na.color = "transparent")
+ 
 # "#0000FF" "#E5E5FF","#E5E5FF" "#9999FF" "#FFFF00" "#7f7fff"
 
 ### colors for raster PM25 UK-AIR
@@ -314,10 +304,8 @@ popup_html_PM25_sat <- "<div>
 <img width=65%, height=65% src='PHOTOPATH' />" ### change size of thelegend
 popup_html_PM25_UK_AIR <- "<div>
 <img width=70%, height=70% src='PHOTOPATH' />" ### change size of thelegend
-# popup_html_PM25_GWR_URB <- "<div>
-# <img width=70%, height=70% src='PHOTOPATH' />" ### change size of thelegend
-# popup_html_PM25_GWR_URB_Ions <- "<div>
-# <img width=75%, height=75% src='PHOTOPATH' />" ### change size of thelegend
+popup_html_PM25_GWR <- "<div>
+<img width=75%, height=75% src='PHOTOPATH' />" ### change size of thelegend
 popup_html_pcm <- "<div>
 <img width=75%, height=75% src='PHOTOPATH' />" ### change size of thelegend
 popup_html_cmaq <- "<div>
@@ -326,8 +314,7 @@ popup_html_cmaq <- "<div>
 
 PM25_sat_url <- "https://www.dropbox.com/s/2dqrk0ygqn6clko/PM25_sat_Legend_EN.png?raw=1"
 PM25_UK_AIR_url <- "https://www.dropbox.com/s/nqeggyuof2eba3a/PM25_UK_AIR_Legend_EN.png?raw=1"
-# PM25_GWR_URB_url <- "https://www.dropbox.com/s/iaklfuocgq724th/GWR_URB_Legend.png?raw=1"
-# PM25_GWR_URB_Ions_url <- "https://www.dropbox.com/s/vplc7wze7wrhydp/GWR_URB_Ions_Legend.png?raw=1"
+PM25_GWR_url <- "https://www.dropbox.com/s/mmk25ml0kwyqw0r/PM25_GWR_Legend_EN.png?raw=1"
 pcm_url <- "https://www.dropbox.com/s/iumde5tx41v5cjv/PM25_pcm_Legend_EN.png?raw=1"
 cmaq_url <- "https://www.dropbox.com/s/8fuz5k57a76xfxx/PM25_cmaq_Legend_EN.png?raw=1"
 
@@ -335,8 +322,7 @@ cmaq_url <- "https://www.dropbox.com/s/8fuz5k57a76xfxx/PM25_cmaq_Legend_EN.png?r
 
 popups_html_PM25_sat <- sapply(PM25_sat_url, function(x) { sub('PHOTOPATH', x, popup_html_PM25_sat)})
 popups_html_PM25_UK_AIR <- sapply(PM25_UK_AIR_url, function(x) { sub('PHOTOPATH', x, popup_html_PM25_UK_AIR)})
-# popups_html_PM25_GWR_URB_url <- sapply(PM25_GWR_URB_url, function(x) { sub('PHOTOPATH', x, popup_html_PM25_GWR_URB)})
-# popups_html_PM25_GWR_URB_Ions_url <- sapply(PM25_GWR_URB_Ions_url, function(x) { sub('PHOTOPATH', x, popup_html_PM25_GWR_URB_Ions)})
+popups_html_PM25_GWR_url <- sapply(PM25_GWR_url, function(x) { sub('PHOTOPATH', x, popup_html_PM25_GWR)})
 popups_html_pcm_url <- sapply(pcm_url, function(x) { sub('PHOTOPATH', x, popup_html_pcm)})
 popups_html_cmaq_url <- sapply(cmaq_url, function(x) { sub('PHOTOPATH', x, popup_html_cmaq)})
 
@@ -352,17 +338,11 @@ popup_PM25_UK_AIR <- paste0(as.vector(popups_html_PM25_UK_AIR),
                             "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>): </strong>", 
                             PM25_sat$pm25_mean_UK_AIR)
 
-# popup_GWR_URB <- paste0(as.vector(popups_html_PM25_GWR_URB_url),
-#                         "<p><strong>Local Authority: </strong>", 
-#                         PM25_sat$id, 
-#                         "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>): </strong>", 
-#                         PM25_sat$pm25_mean_GWR_URB)
-# 
-# popup_GWR <- paste0(as.vector(popups_html_PM25_GWR_URB_Ions_url),
-#                     "<p><strong>Local Authority: </strong>", 
-#                     PM25_sat$id, 
-#                     "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>): </strong>", 
-#                     PM25_sat$pm25_mean_GWR)
+popup_GWR <- paste0(as.vector(popups_html_PM25_GWR_url),
+                         "<p><strong>Local Authority: </strong>", 
+                         PM25_sat$id, 
+                         "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>): </strong>", 
+                         PM25_sat$pm25_mean_GWR)
 
 popup_pcm <- paste0(as.vector(popups_html_pcm_url),
                     "<p><strong>Local Authority: </strong>", 
@@ -415,29 +395,18 @@ map = map_PM25_sat %>%
 #                 labFormat = labelFormat(prefix = ""),
 #                 opacity = 1) %>%
   
-  # PM2.5 GWR URB 
-#  addPolygons(stroke = TRUE, smoothFactor = 0.2, 
- #             fillOpacity = 0.5, 
-  #            color = ~ qpal_GWR_URB(pm25_mean_GWR_URB),
-   #           weight = 2,
-    #          popup = popup_GWR_URB,
-     #         group = "GWR PM2.5 Urban") %>%
-  #          addLegend("bottomright", pal = pal_GWR_URB, values = ~pm25_mean_GWR_URB,
-  #              title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) GWR URB : </strong>",
-  #              labFormat = labelFormat(prefix = ""),
-  #             opacity = 1) %>%  
-  
-  # PM2.5 GWR URB Ions
- # addPolygons(stroke = TRUE, smoothFactor = 0.2, 
-  #            fillOpacity = 0.5, 
-   #           color = ~ qpal_GWR_URB_Ions(pm25_mean_GWR),
-    #          weight = 2,
-     #         popup = popup_GWR,
-      #        group = "GWR PM2.5 Urban+Ions") %>%
-  #             addLegend("bottomright", pal = pal_GWR_URB_Ions, values = ~pm25_mean_GWR,
-  #                 title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) GWR URB+Ions : </strong>",
-  #                 labFormat = labelFormat(prefix = ""),
-  #                opacity = 1) %>% 
+# PM2.5 GWR
+  addPolygons(stroke = TRUE, smoothFactor = 0.2, 
+             fillOpacity = 0.5, 
+            color = ~ qpal_GWR(pm25_mean_GWR),
+            weight = 2,
+              popup = popup_GWR,
+              group = "GWR PM2.5") %>%
+#             addLegend("bottomright", pal = pal_GWR, values = ~pm25_mean_GWR,
+#             title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) GWR: </strong>",
+#             labFormat = labelFormat(prefix = ""),
+#             opacity = 1) %>%  
+
   
   # PM2.5 pcm
   addPolygons(stroke = TRUE, smoothFactor = 0.2, 
@@ -473,11 +442,8 @@ map = map_PM25_sat %>%
   addRasterImage(PM25_UK_AIR_nc, colors = pal_PM25_UK_AIR, opacity = 0.6,
                  group = "PM2.5 UK-AIR rast.") %>%
   # GWR_URB raster
- # addRasterImage(GWR_PM25_URB_nc, colors = pal_GWR_URB_rast, opacity = 0.7,
-  #               group = "Geo.Regr.Urban rast.") %>%
-  # GWR_URB_ions raster
-#  addRasterImage(GWR_PM25_nc, colors = pal_GWR_ions_rast, opacity = 0.7,
- #                group = "Geo.Regr.Urban+Ions rast.") %>%
+  addRasterImage(GWR_PM25_nc, colors = pal_GWR_rast, opacity = 0.6,
+                 group = "GWR PM2.5. rast.") %>%
   # pcm_PM25_raster
   addRasterImage(pcm_PM25_nc, colors = pal_pcm_PM25_rast, opacity = 0.6,
                  group = "PCM model PM2.5 rast.") %>%
@@ -493,23 +459,21 @@ map = map_PM25_sat %>%
   # Layers control
   addLayersControl(
     baseGroups = c("Road map", "Topographical", "Satellite", "Toner Lite"),
-    overlayGroups = c("PM2.5 Satellite", "PM2.5 UK AIR", "PMC PM2.5 model",
-                      "URBAN fraction","Geo.Regr.Urban rast.", "CMAQ PM2.5 model",
-                      "Geo.Regr.Urban+Ions rast.", "PM2.5 Sat. rast.", "PM2.5 UK-AIR rast.",
+    overlayGroups = c("PM2.5 Satellite", "PM2.5 UK AIR", "GWR PM2.5", "PMC PM2.5 model",
+                      "URBAN fraction", "CMAQ PM2.5 model",
+                      "GWR PM2.5. rast.", "PM2.5 Sat. rast.", "PM2.5 UK-AIR rast.",
                       "PCM model PM2.5 rast.", "CMAQ model PM2.5 rast."),
     options = layersControlOptions(collapsed = FALSE)) %>%
   hideGroup("PM2.5 UK AIR") %>%
- # hideGroup("GWR PM2.5 Urban") %>%
-#  hideGroup("GWR PM2.5 Urban+Ions") %>%
+  hideGroup("GWR PM2.5") %>%
   hideGroup("PMC PM2.5 model") %>%
   hideGroup("CMAQ PM2.5 model") %>%
   hideGroup("URBAN fraction") %>%
-  hideGroup("Geo.Regr.Urban rast.") %>%
+  hideGroup("GWR PM2.5. rast.") %>%
   hideGroup("PM2.5 Sat. rast.") %>%
   hideGroup("PM2.5 UK-AIR rast.") %>%
   hideGroup("PCM model PM2.5 rast.") %>%
-  hideGroup("CMAQ model PM2.5 rast.") %>%
-  hideGroup("Geo.Regr.Urban+Ions rast.")
+  hideGroup("CMAQ model PM2.5 rast.")
 
 map
 
