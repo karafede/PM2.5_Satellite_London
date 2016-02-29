@@ -21,10 +21,10 @@ library(mapview)
 
 ### Read shape file #########
 
-dir <- "/SAN/data/Satellite_PM25/UK_shp"
+# dir <- "/SAN/data/Satellite_PM25/UK_shp"
 
-setwd("C:/RICARDO-AEA/Donkelaar_1Km/server")
-dir <- "C:/RICARDO-AEA/Donkelaar_1Km/server"
+setwd("C:/SATELLITE_STUFF/Donkelaar_1Km/server")
+dir <- "C:/SATELLITE_STUFF/Donkelaar_1Km/server"
 
 ### shapefile for local authorities in England
 shp <- readOGR(dsn = dir, layer = "EN_Wales")
@@ -48,8 +48,27 @@ pcm_PM25 <- read.csv("PM25_pcm_EN_2009_2011_interp.csv", header = TRUE)
 cmaq_PM25 <- read.csv("PM25_CMAQ_2009_2011_EN_interp.csv",header = TRUE)
 cmaq_PM25_rast <- read.csv("PM25_CMAQ_2009_2011_10km.csv", header = TRUE)
 
-GWR_PM25 <- read.csv("GWR_AOE_1km_England_ALL.csv", header = TRUE)
-GWR_PM25_rast <- read.csv("GWR_AOE_10km_England_ALL.csv", header = TRUE)
+### original input data are at 10km...then interpolated at 1km #######
+# GWR_PM25 <- read.csv("GWR_AOE_1km_England_ALL.csv", header = TRUE)
+
+### use results of GWR at 1km #######################################
+GWR_PM25 <- read.csv("GWR_AOE_ENGLAND_clean_1km.csv", header = TRUE)
+#  GWR_PM25 <- read.csv("GWR_AOE_ENGLAND_ALL.csv", header = TRUE)
+#  ### replace all negative values with zeros ##########################
+#  GWR_PM25$AOE[GWR_PM25$AOE < 0 | GWR_PM25$AOE > 20] <- 0
+#  write.csv(AAA, file = "GWR_AOE_ENGLAND_clean.csv", row.names=FALSE)
+MIN <- min(GWR_PM25$AOE)
+MAX <- max(GWR_PM25$AOE)
+
+
+### use results of GWR at 10km to create raster image #################
+# GWR_PM25_rast <- read.csv("GWR_AOE_10km_England_ALL.csv", header = TRUE)
+### use results of GWR at 1km to create raster image #################
+GWR_PM25_rast <- read.csv("GWR_AOE_ENGLAND_clean_1km.csv", header = TRUE)
+# GWR_PM25_rast$AOE[GWR_PM25_rast$AOE < 0 | GWR_PM25_rast$AOE > 20] <- 0
+# MIN <- min(GWR_PM25_rast$AOE)
+# MAX <- max(GWR_PM25_rast$AOE)
+
 GWR_PM25_rast <- cbind(GWR_PM25_rast$coord.x, GWR_PM25_rast$coord.y, 
                        GWR_PM25_rast$AOE)
 colnames(GWR_PM25_rast) <- c("Lon", "Lat", "AOE")
@@ -60,11 +79,6 @@ GWR_PM25_rast <- as.data.frame(GWR_PM25_rast)
 # #### define projection for PM25_London_Sat dataframe
 crs <- projection(shp) ### get projections from shp file
 
-
-# PM25_EN_Sat <- cbind(PM25_EN_SAT[,1:3], PM25_UK_AIR[,3], GWR_PM25_URB[,15],
-#                          pcm_PM25[,3], cmaq_PM25[,3])
-# colnames(PM25_London_Sat) <- c("Lon", "Lat", "PM25_1km", "PM25_UK_AIR",
-#                                "GWR_PM25_URB", "pcm_PM25", "cmaq_PM25")
 
 PM25_EN_Sat <- cbind(PM25_EN_SAT[,1:3], PM25_UK_AIR[,3], GWR_PM25[,3],
                      pcm_PM25[,3], cmaq_PM25[,3])
@@ -79,8 +93,16 @@ gridded(PM25_UK_AIR) <- TRUE
 raster_PM25_UK_AIR <- raster(PM25_UK_AIR)
 projection(raster_PM25_UK_AIR) <- CRS("+proj=longlat +datum=WGS84")
 plot(raster_PM25_UK_AIR)
+plot(shp)
 
-PM25_UK_AIR_nc <- writeRaster(raster_PM25_UK_AIR,
+#### crop the raster over the shp file ###########################
+raster_PM25_UK_AIR_cropped <- crop(raster_PM25_UK_AIR, extent(shp))
+raster_PM25_UK_AIR_cropped <- mask(raster_PM25_UK_AIR_cropped, shp)
+  
+plot(raster_PM25_UK_AIR_cropped)
+# plot(shp, add=TRUE, lwd=2)
+
+PM25_UK_AIR_nc <- writeRaster(raster_PM25_UK_AIR_cropped,
                               filename="PM25_UK_AIR.nc",
                               format="CDF", overwrite=TRUE) 
 PM25_UK_AIR_nc <- raster("PM25_UK_AIR.nc")
@@ -97,7 +119,14 @@ projection(raster_PM25_EN_SAT_rast) <- CRS("+proj=longlat +datum=WGS84")
 plot(raster_PM25_EN_SAT_rast)
 # mapview(raster_PM25_EN_SAT)
 
-PM25_EN_SAT_nc <- writeRaster(raster_PM25_EN_SAT_rast,
+#### crop the raster over the shp file ###########################
+raster_PM25_EN_SAT_rast_cropped <- crop(raster_PM25_EN_SAT_rast, extent(shp))
+raster_PM25_EN_SAT_rast_cropped <- mask(raster_PM25_EN_SAT_rast_cropped, shp)
+
+plot(raster_PM25_EN_SAT_rast_cropped)
+
+
+PM25_EN_SAT_nc <- writeRaster(raster_PM25_EN_SAT_rast_cropped,
                            filename="PM25_EN_SAT_rast.nc",
                            format="CDF", overwrite=TRUE) 
 PM25_EN_SAT_nc <- raster("PM25_EN_SAT_rast.nc")
@@ -113,7 +142,13 @@ raster_URB_Cover <- raster(URB_Cover)
 projection(raster_URB_Cover) <- CRS("+proj=longlat +datum=WGS84")
 plot(raster_URB_Cover)
 
-URB_Cover_nc <- writeRaster(raster_URB_Cover,
+#### crop the raster over the shp file ###########################
+raster_URB_Cover_cropped <- crop(raster_URB_Cover, extent(shp))
+raster_URB_Cover_cropped <- mask(raster_URB_Cover_cropped, shp)
+
+plot(raster_URB_Cover_cropped)
+
+URB_Cover_nc <- writeRaster(raster_URB_Cover_cropped,
                             filename="URB_Cover_London.nc",
                             format="CDF", overwrite=TRUE) 
 URB_Cover_nc <- raster("URB_Cover_London.nc")
@@ -128,8 +163,15 @@ gridded(GWR_PM25_rast) <- TRUE
 raster_GWR_PM25 <- raster(GWR_PM25_rast)
 projection(raster_GWR_PM25) <- CRS("+proj=longlat +datum=WGS84")
 plot(raster_GWR_PM25)
+# mapview(raster_GWR_PM25)
 
-GWR_PM25_nc <- writeRaster(raster_GWR_PM25,
+#### crop the raster over the shp file ###########################
+raster_GWR_PM25_cropped <- crop(raster_GWR_PM25, extent(shp))
+raster_GWR_PM25_cropped <- mask(raster_GWR_PM25_cropped, shp)
+
+plot(raster_GWR_PM25_cropped)
+
+GWR_PM25_nc <- writeRaster(raster_GWR_PM25_cropped,
                             filename="GWR_PM25.nc",
                             format="CDF", overwrite=TRUE) 
 GWR_PM25_nc <- raster("GWR_PM25.nc")
@@ -145,7 +187,14 @@ raster_pcm_PM25 <- raster(pcm_PM25)
 projection(raster_pcm_PM25) <- CRS("+proj=longlat +datum=WGS84")
 plot(raster_pcm_PM25)
 
-pcm_PM25_nc <- writeRaster(raster_pcm_PM25,
+
+#### crop the raster over the shp file ###########################
+raster_pcm_PM25_cropped <- crop(raster_pcm_PM25, extent(shp))
+raster_pcm_PM25_cropped <- mask(raster_pcm_PM25_cropped, shp)
+
+plot(raster_pcm_PM25_cropped)
+
+pcm_PM25_nc <- writeRaster(raster_pcm_PM25_cropped,
                            filename="pcm_PM25_raster.nc",
                            format="CDF", overwrite=TRUE) 
 pcm_PM25_nc <- raster("pcm_PM25_raster.nc")
@@ -161,7 +210,13 @@ raster_cmaq_PM25_rast <- raster(cmaq_PM25_rast)
 projection(raster_cmaq_PM25_rast) <- CRS("+proj=longlat +datum=WGS84")
 plot(raster_cmaq_PM25_rast)
 
-cmaq_PM25_nc <- writeRaster(raster_cmaq_PM25_rast,
+#### crop the raster over the shp file ###########################
+raster_cmaq_PM25_rast_cropped <- crop(raster_cmaq_PM25_rast, extent(shp))
+raster_cmaq_PM25_rast_cropped <- mask(raster_cmaq_PM25_rast_cropped, shp)
+
+plot(raster_cmaq_PM25_rast_cropped)
+
+cmaq_PM25_nc <- writeRaster(raster_cmaq_PM25_rast_cropped,
                             filename="cmaq_PM25_raster.nc",
                             format="CDF", overwrite=TRUE) 
 cmaq_PM25_nc <- raster("cmaq_PM25_raster.nc")
@@ -227,7 +282,7 @@ shp <- SpatialPolygonsDataFrame(shp, data=Sat_data_points)
 # ----- Write data to GeoJSON
 
 dir <- "/SAN/data/Satellite_PM25"
-dir <- "C:/RICARDO-AEA/Donkelaar_1Km/server"
+dir <- "C:/SATELLITE_STUFF/Donkelaar_1Km/server"
 leafdat<-paste(dir, "/",  ".ENGLAND_geojson_PM25_1km_Sat_2009_2011", sep="") 
 
 ####  ATT !!!!! erase existing .geojson file when re-runing code ######
@@ -482,6 +537,6 @@ map
 #### "save as Web Page"...PM25_Sat_new
 
  saveWidget(map,
-            file="England_PM25_Sat.html",
+            file="England_PM25_Sat_new.html",
             selfcontained = FALSE)
 
