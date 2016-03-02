@@ -46,7 +46,8 @@ Topography <- read.csv("Topography_EN_interp.csv", header = TRUE)
 ED <- Topography$TOPO_EN - Altitude$Altitude
 pcm_PM25 <- read.csv("PM25_pcm_EN_2009_2011_interp.csv", header = TRUE)
 cmaq_PM25 <- read.csv("PM25_CMAQ_2009_2011_EN_interp.csv",header = TRUE)
-cmaq_PM25_rast <- read.csv("PM25_CMAQ_2009_2011_10km.csv", header = TRUE)
+cmaq_PM25_rast_10km <- read.csv("PM25_CMAQ_2009_2011_10km.csv", header = TRUE)
+cmaq_PM25_rast_1km <- read.csv("PM25_CMAQ_2009_2011_EN_interp.csv", header = TRUE)
 
 ### original input data are at 10km...then interpolated at 1km #######
 # GWR_PM25 <- read.csv("GWR_AOE_1km_England_ALL.csv", header = TRUE)
@@ -62,17 +63,23 @@ MAX <- max(GWR_PM25$AOE)
 
 
 ### use results of GWR at 10km to create raster image #################
-# GWR_PM25_rast <- read.csv("GWR_AOE_10km_England_ALL.csv", header = TRUE)
+GWR_PM25_rast_10km <- read.csv("GWR_AOE_10km_England_ALL.csv", header = TRUE)
 ### use results of GWR at 1km to create raster image #################
-GWR_PM25_rast <- read.csv("GWR_AOE_ENGLAND_clean_1km.csv", header = TRUE)
-# GWR_PM25_rast$AOE[GWR_PM25_rast$AOE < 0 | GWR_PM25_rast$AOE > 20] <- 0
+GWR_PM25_rast_1km <- read.csv("GWR_AOE_ENGLAND_clean_1km.csv", header = TRUE)
+# GWR_PM25_rast$AOE[GWR_PM25_rast$AOE < 0 | GWR_PM25_rast$AOE > 20] <- NA
 # MIN <- min(GWR_PM25_rast$AOE)
 # MAX <- max(GWR_PM25_rast$AOE)
 
-GWR_PM25_rast <- cbind(GWR_PM25_rast$coord.x, GWR_PM25_rast$coord.y, 
-                       GWR_PM25_rast$AOE)
-colnames(GWR_PM25_rast) <- c("Lon", "Lat", "AOE")
-GWR_PM25_rast <- as.data.frame(GWR_PM25_rast)
+GWR_PM25_rast_10km <- cbind(GWR_PM25_rast_10km$coord.x, GWR_PM25_rast_10km$coord.y, 
+                        GWR_PM25_rast_10km$AOE)
+
+GWR_PM25_rast_1km <- cbind(GWR_PM25_rast_1km$Lon, GWR_PM25_rast_1km$Lat, 
+                       GWR_PM25_rast_1km$AOE)
+
+colnames(GWR_PM25_rast_10km) <- c("Lon", "Lat", "AOE")
+GWR_PM25_rast_10km <- as.data.frame(GWR_PM25_rast_10km)
+colnames(GWR_PM25_rast_1km) <- c("Lon", "Lat", "AOE")
+GWR_PM25_rast_1km <- as.data.frame(GWR_PM25_rast_1km)
 
 # PM25_UK_Sat <- read.csv("PM25_UK_1km_2009_2011_interp.csv", header = TRUE) 
 
@@ -155,26 +162,51 @@ URB_Cover_nc <- raster("URB_Cover_London.nc")
 
 
 
-#### create a raster for GWR PM25 (Geographycally weighted regression) #######
+#### create a raster for GWR PM25 at 10km (Geographycally weighted regression) #######
 
-coordinates(GWR_PM25_rast) <- ~ Lon + Lat
+coordinates(GWR_PM25_rast_10km) <- ~ Lon + Lat
 # coerce to SpatialPixelsDataFrame
-gridded(GWR_PM25_rast) <- TRUE
-raster_GWR_PM25 <- raster(GWR_PM25_rast)
-projection(raster_GWR_PM25) <- CRS("+proj=longlat +datum=WGS84")
-plot(raster_GWR_PM25)
+gridded(GWR_PM25_rast_10km) <- TRUE
+raster_GWR_PM25_10km <- raster(GWR_PM25_rast_10km)
+projection(raster_GWR_PM25_10km) <- CRS("+proj=longlat +datum=WGS84")
+plot(raster_GWR_PM25_10km)
 # mapview(raster_GWR_PM25)
 
 #### crop the raster over the shp file ###########################
-raster_GWR_PM25_cropped <- crop(raster_GWR_PM25, extent(shp))
-raster_GWR_PM25_cropped <- mask(raster_GWR_PM25_cropped, shp)
+raster_GWR_PM25_10km_cropped <- crop(raster_GWR_PM25_10km, extent(shp))
+raster_GWR_PM25_10km_cropped <- mask(raster_GWR_PM25_10km_cropped, shp)
 
-plot(raster_GWR_PM25_cropped)
+plot(raster_GWR_PM25_10km_cropped)
+mapview(raster_GWR_PM25_10km_cropped)
 
-GWR_PM25_nc <- writeRaster(raster_GWR_PM25_cropped,
-                            filename="GWR_PM25.nc",
+GWR_PM25_10km_nc <- writeRaster(raster_GWR_PM25_10km_cropped,
+                            filename="GWR_PM25_10km.nc",
                             format="CDF", overwrite=TRUE) 
-GWR_PM25_nc <- raster("GWR_PM25.nc")
+GWR_PM25_10km_nc <- raster("GWR_PM25_10km.nc")
+
+
+
+#### create a raster for GWR PM25 at 1km (Geographycally weighted regression) #######
+
+coordinates(GWR_PM25_rast_1km) <- ~ Lon + Lat
+# coerce to SpatialPixelsDataFrame
+gridded(GWR_PM25_rast_1km) <- TRUE
+raster_GWR_PM25_1km <- raster(GWR_PM25_rast_1km)
+projection(raster_GWR_PM25_1km) <- CRS("+proj=longlat +datum=WGS84")
+plot(raster_GWR_PM25_1km)
+# mapview(raster_GWR_PM25)
+
+#### crop the raster over the shp file ###########################
+raster_GWR_PM25_1km_cropped <- crop(raster_GWR_PM25_1km, extent(shp))
+raster_GWR_PM25_1km_cropped <- mask(raster_GWR_PM25_1km_cropped, shp)
+
+plot(raster_GWR_PM25_1km_cropped)
+mapview(raster_GWR_PM25_1km_cropped)
+
+GWR_PM25_1km_nc <- writeRaster(raster_GWR_PM25_1km_cropped,
+                                filename="GWR_PM25_1km.nc",
+                                format="CDF", overwrite=TRUE) 
+GWR_PM25_1km_nc <- raster("GWR_PM25_1km.nc")
 
 
 
@@ -201,25 +233,46 @@ pcm_PM25_nc <- raster("pcm_PM25_raster.nc")
 # mapview(pcm_PM25_nc) + mapview(raster_PM25_EN_SAT)
 
 
-#### create a raster for PM2.5 CMAQ #####################################
+#### create a raster for PM2.5 CMAQ 10km #####################################
 
-coordinates(cmaq_PM25_rast) <- ~ Lon + Lat
+coordinates(cmaq_PM25_rast_10km) <- ~ Lon + Lat
 # coerce to SpatialPixelsDataFrame
-gridded(cmaq_PM25_rast) <- TRUE
-raster_cmaq_PM25_rast <- raster(cmaq_PM25_rast)
-projection(raster_cmaq_PM25_rast) <- CRS("+proj=longlat +datum=WGS84")
-plot(raster_cmaq_PM25_rast)
+gridded(cmaq_PM25_rast_10km) <- TRUE
+raster_cmaq_PM25_rast_10km <- raster(cmaq_PM25_rast_10km)
+projection(raster_cmaq_PM25_rast_10km) <- CRS("+proj=longlat +datum=WGS84")
+plot(raster_cmaq_PM25_rast_10km)
 
 #### crop the raster over the shp file ###########################
-raster_cmaq_PM25_rast_cropped <- crop(raster_cmaq_PM25_rast, extent(shp))
-raster_cmaq_PM25_rast_cropped <- mask(raster_cmaq_PM25_rast_cropped, shp)
+raster_cmaq_PM25_rast_10km_cropped <- crop(raster_cmaq_PM25_rast_10km, extent(shp))
+raster_cmaq_PM25_rast_10km_cropped <- mask(raster_cmaq_PM25_rast_10km_cropped,shp)
 
-plot(raster_cmaq_PM25_rast_cropped)
+plot(raster_cmaq_PM25_rast_10km_cropped)
 
-cmaq_PM25_nc <- writeRaster(raster_cmaq_PM25_rast_cropped,
-                            filename="cmaq_PM25_raster.nc",
+cmaq_PM25_10km_nc <- writeRaster(raster_cmaq_PM25_rast_10km_cropped,
+                            filename="cmaq_PM25_10km_raster.nc",
                             format="CDF", overwrite=TRUE) 
-cmaq_PM25_nc <- raster("cmaq_PM25_raster.nc")
+cmaq_PM25_10km_nc <- raster("cmaq_PM25_10km_raster.nc")
+
+
+#### create a raster for PM2.5 CMAQ 1km #####################################
+
+coordinates(cmaq_PM25_rast_1km) <- ~ Lon + Lat
+# coerce to SpatialPixelsDataFrame
+gridded(cmaq_PM25_rast_1km) <- TRUE
+raster_cmaq_PM25_rast_1km <- raster(cmaq_PM25_rast_1km)
+projection(raster_cmaq_PM25_rast_1km) <- CRS("+proj=longlat +datum=WGS84")
+plot(raster_cmaq_PM25_rast_1km)
+
+#### crop the raster over the shp file ###########################
+raster_cmaq_PM25_rast_1km_cropped <- crop(raster_cmaq_PM25_rast_1km, extent(shp))
+raster_cmaq_PM25_rast_1km_cropped <- mask(raster_cmaq_PM25_rast_1km_cropped,shp)
+
+plot(raster_cmaq_PM25_rast_1km_cropped)
+
+cmaq_PM25_1km_nc <- writeRaster(raster_cmaq_PM25_rast_1km_cropped,
+                                 filename="cmaq_PM25_1km_raster.nc",
+                                 format="CDF", overwrite=TRUE) 
+cmaq_PM25_1km_nc <- raster("cmaq_PM25_1km_raster.nc")
 
 
 ###################################################################################
@@ -288,8 +341,8 @@ leafdat<-paste(dir, "/",  ".ENGLAND_geojson_PM25_1km_Sat_2009_2011", sep="")
 ####  ATT !!!!! erase existing .geojson file when re-runing code ######
 writeOGR(shp, leafdat, layer="", driver="GeoJSON")  ## erase existing .geojson file when re-runing code 
 
-
-#### Write GeoJSON for Leaflet application ############################
+########################################################################
+#### read GeoJSON for Leaflet application ##############################
 
 PM25_sat <- readOGR(".ENGLAND_geojson_PM25_1km_Sat_2009_2011", "OGRGeoJSON")
 
@@ -301,6 +354,7 @@ qpal_UK_AIR <- colorQuantile("Reds", PM25_sat$pm25_mean_UK_AIR, n = 50)
 qpal_GWR <- colorQuantile("Reds", PM25_sat$pm25_mean_GWR, n = 7)
 qpal_pcm <- colorQuantile("Reds", PM25_sat$pm25_mean_pcm, n = 7)
 qpal_cmaq <- colorQuantile("Reds", PM25_sat$pm25_mean_cmaq, n = 7)
+
 
 #### colors for legend (continuous)
 
@@ -327,9 +381,14 @@ pal_cmaq <- colorNumeric(
 ### colors for raster URB land cover (England region)
 pal_URB <- colorNumeric(c("#FFFFCC", "#41B6C4","#0C2C84"), getValues(URB_Cover_nc),
                         na.color = "transparent")
-### colors for raster GWR_URB
-pal_GWR_rast <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "#FF0000", "#b30000"),
-                    getValues(GWR_PM25_nc),na.color = "transparent")
+
+### colors for raster GWR_10km
+pal_GWR_rast_10km <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "#FF0000", "#b30000"),
+                    getValues(GWR_PM25_10km_nc),na.color = "transparent")
+
+### colors for raster GWR_1km
+pal_GWR_rast_1km <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "#FF0000", "#b30000"),
+                             getValues(GWR_PM25_1km_nc),na.color = "transparent")
  
 # "#0000FF" "#E5E5FF","#E5E5FF" "#9999FF" "#FFFF00" "#7f7fff"
 
@@ -344,9 +403,15 @@ pal_PM25_SAT <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "#FF00
 ### colors for raster pcm_PM25
 pal_pcm_PM25_rast <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "#FF0000", "#b30000"),
                                   getValues(pcm_PM25_nc),na.color = "transparent")
-### colors for raster cmaq_PM25
-pal_cmaq_PM25_rast <- colorNumeric(c("#0000FF", "#FFFF00","#FF0000"),
-                                   getValues(cmaq_PM25_nc),na.color = "transparent")
+
+### colors for raster cmaq_PM25 10km
+pal_cmaq_PM25_rast_10km <- colorNumeric(c("#0000FF", "#FFFF00","#FF0000"),
+                                   getValues(cmaq_PM25_10km_nc),na.color = "transparent")
+
+### colors for raster cmaq_PM25 1km
+pal_cmaq_PM25_rast_1km <- colorNumeric(c("#0000FF", "#FFFF00","#FF0000"),
+                                   getValues(cmaq_PM25_1km_nc),na.color = "transparent")
+
 
 # photoIcon <- makeIcon(
 #   iconAnchorX = 12, iconAnchorY = 12,   
@@ -496,15 +561,21 @@ map = map_PM25_sat %>%
   # PM25_UK_AIR raster
   addRasterImage(PM25_UK_AIR_nc, colors = pal_PM25_UK_AIR, opacity = 0.6,
                  group = "PM2.5 UK-AIR rast.") %>%
-  # GWR_URB raster
-  addRasterImage(GWR_PM25_nc, colors = pal_GWR_rast, opacity = 0.6,
-                 group = "GWR PM2.5. rast.") %>%
+  # GWR_10km raster
+  addRasterImage(GWR_PM25_10km_nc, colors = pal_GWR_rast_10km, opacity = 0.6,
+                 group = "GWR PM2.5. rast. 10km") %>%
+  # GWR_1km raster
+  addRasterImage(GWR_PM25_1km_nc, colors = pal_GWR_rast_1km, opacity = 0.6,
+                 group = "GWR PM2.5. rast. 1km") %>%
   # pcm_PM25_raster
   addRasterImage(pcm_PM25_nc, colors = pal_pcm_PM25_rast, opacity = 0.6,
                  group = "PCM model PM2.5 rast.") %>%
-  # cmaq_PM25_raster
-  addRasterImage(cmaq_PM25_nc, colors = pal_cmaq_PM25_rast, opacity = 0.6,
-                 group = "CMAQ model PM2.5 rast.") %>%
+  # cmaq_PM25_raster 10km
+  addRasterImage(cmaq_PM25_10km_nc, colors = pal_cmaq_PM25_rast_10km, opacity = 0.5,
+                 group = "CMAQ model PM2.5 rast. 10km") %>%
+  # cmaq_PM25_raster 1km
+  addRasterImage(cmaq_PM25_1km_nc, colors = pal_cmaq_PM25_rast_1km, opacity = 0.6,
+                 group = "CMAQ model PM2.5 rast. 1km") %>%
   
   #addMarkers(lng=-0.973, lat=52.030,  
   #               icon = photoIcon, # function providing custom marker-icons
@@ -514,21 +585,25 @@ map = map_PM25_sat %>%
   # Layers control
   addLayersControl(
     baseGroups = c("Road map", "Topographical", "Satellite", "Toner Lite"),
-    overlayGroups = c("PM2.5 Satellite", "PM2.5 UK AIR", "GWR PM2.5", "PMC PM2.5 model",
-                      "URBAN fraction", "CMAQ PM2.5 model",
-                      "GWR PM2.5. rast.", "PM2.5 Sat. rast.", "PM2.5 UK-AIR rast.",
-                      "PCM model PM2.5 rast.", "CMAQ model PM2.5 rast."),
+    overlayGroups = c("PM2.5 Satellite", "PM2.5 UK AIR", "GWR PM2.5",
+                      "PMC PM2.5 model", "URBAN fraction", "CMAQ PM2.5 model",
+                      "GWR PM2.5. rast. 10km","GWR PM2.5. rast. 1km",
+                      "PM2.5 Sat. rast.", "PM2.5 UK-AIR rast.",
+                      "PCM model PM2.5 rast.", "CMAQ model PM2.5 rast. 10km",
+                      "CMAQ model PM2.5 rast. 1km"),
     options = layersControlOptions(collapsed = FALSE)) %>%
   hideGroup("PM2.5 UK AIR") %>%
   hideGroup("GWR PM2.5") %>%
   hideGroup("PMC PM2.5 model") %>%
   hideGroup("CMAQ PM2.5 model") %>%
   hideGroup("URBAN fraction") %>%
-  hideGroup("GWR PM2.5. rast.") %>%
+  hideGroup("GWR PM2.5. rast. 10km") %>%
+  hideGroup("GWR PM2.5. rast. 1km") %>%
   hideGroup("PM2.5 Sat. rast.") %>%
   hideGroup("PM2.5 UK-AIR rast.") %>%
   hideGroup("PCM model PM2.5 rast.") %>%
-  hideGroup("CMAQ model PM2.5 rast.")
+  hideGroup("CMAQ model PM2.5 rast. 10km") %>%
+  hideGroup("CMAQ model PM2.5 rast. 1km") 
 
 map
 
