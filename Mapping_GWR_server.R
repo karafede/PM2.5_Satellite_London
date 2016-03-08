@@ -496,7 +496,7 @@ map = map_PM25_sat %>%
               color = ~ qpal_SAT(pm25_mean),
               weight = 2,
               popup = popup_PM25_sat,
-              group = "PM2.5 Satellite") %>%
+              group = "PM2.5 Satellite (MODIS)") %>%
 #          addLegend("bottomright", pal = pal_SAT, values = ~pm25_mean,
 #              title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) Sat : </strong>",
 #              labFormat = labelFormat(prefix = ""),
@@ -555,12 +555,23 @@ map = map_PM25_sat %>%
   # URBAN land cover raster
   addRasterImage(URB_Cover_nc, colors = pal_URB, opacity = 0.6,
                  group = "URBAN fraction") %>%
+
   # PM25_SAT raster
   addRasterImage(PM25_EN_SAT_nc, colors = pal_PM25_SAT, opacity = 0.6,
-                 group = "PM2.5 Sat. rast.") %>%
+                 group = "PM2.5 Sat. rast.(MODIS)") %>%
+  addLegend("bottomright",pal = pal_PM25_SAT, values = values(PM25_EN_SAT_nc),
+            title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) MODIS (2009-2011) : </strong>",
+                    labFormat = labelFormat(prefix = ""),
+                    opacity = 0.6) %>%
+
   # PM25_UK_AIR raster
   addRasterImage(PM25_UK_AIR_nc, colors = pal_PM25_UK_AIR, opacity = 0.6,
                  group = "PM2.5 UK-AIR rast.") %>%
+#   addLegend("bottomright",pal = pal_PM25_UK_AIR, values = values(PM25_UK_AIR_nc),
+#             title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) UK AIR (2009-2011) : </strong>",
+#             labFormat = labelFormat(prefix = ""),
+#             opacity = 0.6) %>%
+  
   # GWR_10km raster
   addRasterImage(GWR_PM25_10km_nc, colors = pal_GWR_rast_10km, opacity = 0.6,
                  group = "GWR PM2.5. rast. 10km") %>%
@@ -585,10 +596,10 @@ map = map_PM25_sat %>%
   # Layers control
   addLayersControl(
     baseGroups = c("Road map", "Topographical", "Satellite", "Toner Lite"),
-    overlayGroups = c("PM2.5 Satellite", "PM2.5 UK AIR", "GWR PM2.5",
+    overlayGroups = c("PM2.5 Satellite (MODIS)", "PM2.5 UK AIR", "GWR PM2.5",
                       "PMC PM2.5 model", "URBAN fraction", "CMAQ PM2.5 model",
                       "GWR PM2.5. rast. 10km","GWR PM2.5. rast. 1km",
-                      "PM2.5 Sat. rast.", "PM2.5 UK-AIR rast.",
+                      "PM2.5 Sat. rast.(MODIS)", "PM2.5 UK-AIR rast.",
                       "PCM model PM2.5 rast.", "CMAQ model PM2.5 rast. 10km",
                       "CMAQ model PM2.5 rast. 1km"),
     options = layersControlOptions(collapsed = FALSE)) %>%
@@ -599,7 +610,7 @@ map = map_PM25_sat %>%
   hideGroup("URBAN fraction") %>%
   hideGroup("GWR PM2.5. rast. 10km") %>%
   hideGroup("GWR PM2.5. rast. 1km") %>%
-  hideGroup("PM2.5 Sat. rast.") %>%
+  hideGroup("PM2.5 Sat. rast.(MODIS)") %>%
   hideGroup("PM2.5 UK-AIR rast.") %>%
   hideGroup("PCM model PM2.5 rast.") %>%
   hideGroup("CMAQ model PM2.5 rast. 10km") %>%
