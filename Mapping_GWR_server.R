@@ -23,8 +23,8 @@ library(mapview)
 
 # dir <- "/SAN/data/Satellite_PM25/UK_shp"
 
-setwd("C:/SATELLITE_STUFF/Donkelaar_1Km/server")
-dir <- "C:/SATELLITE_STUFF/Donkelaar_1Km/server"
+setwd("C:/RICARDO-AEA/Donkelaar_1Km/server")
+dir <- "C:/RICARDO-AEA/Donkelaar_1Km/server"
 
 ### shapefile for local authorities in England
 shp <- readOGR(dsn = dir, layer = "EN_Wales")
@@ -81,16 +81,51 @@ GWR_PM25_rast_10km <- as.data.frame(GWR_PM25_rast_10km)
 colnames(GWR_PM25_rast_1km) <- c("Lon", "Lat", "AOE")
 GWR_PM25_rast_1km <- as.data.frame(GWR_PM25_rast_1km)
 
-# PM25_UK_Sat <- read.csv("PM25_UK_1km_2009_2011_interp.csv", header = TRUE) 
+#### New data from Donkelaar (2016) - Averages 2009-2011 from GWR model 1km #####
+
+AVG_GWR_PM25 <- read.csv("AVG_GWR_PM25_1km_interp.csv", header = TRUE)
+
 
 # #### define projection for PM25_London_Sat dataframe
 crs <- projection(shp) ### get projections from shp file
 
 
-PM25_EN_Sat <- cbind(PM25_EN_SAT[,1:3], PM25_UK_AIR[,3], GWR_PM25[,3],
+#################################################################################
+#################################################################################
+############ Create data frame with all point data for joining poits ############
+############ at local authorities level #########################################
+
+
+PM25_EN_Sat <- cbind(PM25_EN_SAT[,1:3], PM25_UK_AIR[,3], GWR_PM25[,3], 
+                     AVG_GWR_PM25 [,3],
                      pcm_PM25[,3], cmaq_PM25[,3])
 colnames(PM25_EN_Sat) <- c("Lon", "Lat", "PM25_1km", "PM25_UK_AIR", "GWR_PM25",
-                               "pcm_PM25", "cmaq_PM25")
+                            "AVG_GWR_PM25", "pcm_PM25", "cmaq_PM25")  
+
+
+### create a raster for GWR PM25 at 1km (Geographycally weighted regression) ##
+### NEW Donkelaar data 2016 ###################################################
+
+coordinates(AVG_GWR_PM25) <- ~ Lon + Lat
+# coerce to SpatialPixelsDataFrame
+gridded(AVG_GWR_PM25) <- TRUE
+raster_AVG_GWR_PM25 <- raster(AVG_GWR_PM25)
+projection(raster_AVG_GWR_PM25) <- CRS("+proj=longlat +datum=WGS84")
+plot(raster_AVG_GWR_PM25)
+
+#### crop the raster over the shp file ###########################
+raster_AVG_GWR_PM25_cropped <- crop(raster_AVG_GWR_PM25, extent(shp))
+raster_AVG_GWR_PM25_cropped <- mask(raster_AVG_GWR_PM25_cropped, shp)
+
+plot(raster_AVG_GWR_PM25_cropped)
+# plot(shp, add=TRUE, lwd=2)
+
+AVG_GWR_PM25_nc <- writeRaster(raster_AVG_GWR_PM25_cropped,
+                               filename="AVG_GWR_PM25_Donkelaar_2016.nc",
+                               format="CDF", overwrite=TRUE) 
+AVG_GWR_PM25_nc <- raster("AVG_GWR_PM25_Donkelaar_2016.nc")
+
+
 
 #### create a raster for PM25 UK-AIR 1Km in England #######
 
@@ -288,7 +323,7 @@ PM25_EN_Sat <- SpatialPointsDataFrame(PM25_EN_Sat[,1:2], PM25_EN_Sat,
 # points(PM25_UK_Sat, pch=10)
 
 #### Points into inside polygons
-pts.poly <- point.in.poly(PM25_EN_Sat, shp) ### requre Library (SpatialEco)
+pts.poly <- point.in.poly(PM25_EN_Sat, shp) ### require Library (SpatialEco)
 # pts.poly <- over(PM25_EN_Sat, shp[,"id"])
 # PM25_EN_Sat$id <- pts.poly$id
 
@@ -306,7 +341,8 @@ Sat_data_points <- Sat_data_points %>%
   dplyr::group_by(id) %>% 
   dplyr::summarise(pm25_mean = mean(PM25_1km),
                    pm25_mean_UK_AIR = mean(PM25_UK_AIR),
-                   pm25_mean_GWR = mean(GWR_PM25),
+                   # pm25_mean_GWR = mean(GWR_PM25),
+                   pm25_mean_AVG_GWR = mean(AVG_GWR_PM25),
                    pm25_mean_pcm = mean(pcm_PM25),
                    pm25_mean_cmaq = mean(cmaq_PM25)) %>%
   dplyr::ungroup() ### comment if not using SpatialEco
@@ -326,7 +362,7 @@ writeOGR(shp,"Local Authorities_England",
          overwrite_layer = TRUE)
 
 Sat_data_points <- shp@data[,c("id","name","pm25_mean","pm25_mean_UK_AIR",
-                               "pm25_mean_GWR", "pm25_mean_pcm", "pm25_mean_cmaq")]
+                               "pm25_mean_AVG_GWR", "pm25_mean_pcm", "pm25_mean_cmaq")]
 row.names(Sat_data_points) <- row.names(shp)
 
 shp <- SpatialPolygonsDataFrame(shp, data=Sat_data_points)
@@ -335,7 +371,7 @@ shp <- SpatialPolygonsDataFrame(shp, data=Sat_data_points)
 # ----- Write data to GeoJSON
 
 dir <- "/SAN/data/Satellite_PM25"
-dir <- "C:/SATELLITE_STUFF/Donkelaar_1Km/server"
+dir <- "C:/RICARDO-AEA/Donkelaar_1Km/server"
 leafdat<-paste(dir, "/",  ".ENGLAND_geojson_PM25_1km_Sat_2009_2011", sep="") 
 
 ####  ATT !!!!! erase existing .geojson file when re-runing code ######
@@ -368,8 +404,8 @@ pal_UK_AIR <- colorNumeric(
 
 pal_GWR <- colorNumeric(
    palette = "Reds",
-   domain = PM25_sat$pm25_mean_GWR)
- 
+   domain = PM25_sat$pm25_mean_AVG_GWR)
+
 pal_pcm <- colorNumeric(
   palette = "Reds",
   domain = PM25_sat$pm25_mean_pcm)
@@ -389,6 +425,10 @@ pal_GWR_rast_10km <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "
 ### colors for raster GWR_1km
 pal_GWR_rast_1km <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "#FF0000", "#b30000"),
                              getValues(GWR_PM25_1km_nc),na.color = "transparent")
+
+### colors for raster GWR_1km new data 2009_2016 Donkelaar (2016)
+pal_AVG_GWR_PM25_1km <- colorNumeric(c("#9999FF", "#9999FF", "#9999FF","#FFFF00", "#FF0000", "#b30000"),
+                                 getValues(AVG_GWR_PM25_nc),na.color = "transparent")
  
 # "#0000FF" "#E5E5FF","#E5E5FF" "#9999FF" "#FFFF00" "#7f7fff"
 
@@ -462,7 +502,7 @@ popup_GWR <- paste0(as.vector(popups_html_PM25_GWR_url),
                          "<p><strong>Local Authority: </strong>", 
                          PM25_sat$id, 
                          "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>): </strong>", 
-                         PM25_sat$pm25_mean_GWR)
+                         PM25_sat$pm25_mean_AVG_GWR)
 
 popup_pcm <- paste0(as.vector(popups_html_pcm_url),
                     "<p><strong>Local Authority: </strong>", 
@@ -490,17 +530,32 @@ map = map_PM25_sat %>%
   addProviderTiles("Stamen.TonerLite", group = "Toner Lite") %>%
   
   
-  # PM2.5 satellite data 
-  addPolygons(stroke = TRUE, smoothFactor = 0.2, 
-              fillOpacity = 0.5, 
-              color = ~ qpal_SAT(pm25_mean),
-              weight = 2,
-              popup = popup_PM25_sat,
-              group = "PM2.5 Satellite (MODIS)") %>%
+#   # PM2.5 satellite data 
+#   addPolygons(stroke = TRUE, smoothFactor = 0.2, 
+#               fillOpacity = 0.5, 
+#               color = ~ qpal_SAT(pm25_mean),
+#               weight = 2,
+#               popup = popup_PM25_sat,
+#               group = "PM2.5 Satellite (MODIS 10km)") %>%
 #          addLegend("bottomright", pal = pal_SAT, values = ~pm25_mean,
 #              title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) Sat : </strong>",
 #              labFormat = labelFormat(prefix = ""),
 #             opacity = 1) %>%
+  
+
+  
+# PM2.5 GWR
+  addPolygons(stroke = TRUE, smoothFactor = 0.2, 
+             fillOpacity = 0.5, 
+            color = ~ qpal_GWR(pm25_mean_AVG_GWR),
+            weight = 2,
+              popup = popup_GWR,
+              group = "GWR PM2.5 (1km) (Donkelaar 2016)") %>%
+#               addLegend("bottomright", pal = pal_GWR, values = ~pm25_mean_AVG_GWR,
+#               title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) GWR (MODIS) 2009-2011: </strong>",
+#               labFormat = labelFormat(prefix = ""),
+#               opacity = 1) %>%  
+
   
   
   # UK AIR interpolated data
@@ -510,23 +565,10 @@ map = map_PM25_sat %>%
               weight = 2,
               popup = popup_PM25_UK_AIR,
               group = "PM2.5 UK AIR") %>%
-#          addLegend("bottomright", pal = pal_UK_AIR, values = ~pm25_mean_UK_AIR,
-#                    title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) UK-AIR : </strong>",
-#                 labFormat = labelFormat(prefix = ""),
-#                 opacity = 1) %>%
-  
-# PM2.5 GWR
-  addPolygons(stroke = TRUE, smoothFactor = 0.2, 
-             fillOpacity = 0.5, 
-            color = ~ qpal_GWR(pm25_mean_GWR),
-            weight = 2,
-              popup = popup_GWR,
-              group = "GWR PM2.5") %>%
-#             addLegend("bottomright", pal = pal_GWR, values = ~pm25_mean_GWR,
-#             title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) GWR: </strong>",
-#             labFormat = labelFormat(prefix = ""),
-#             opacity = 1) %>%  
-
+  #          addLegend("bottomright", pal = pal_UK_AIR, values = ~pm25_mean_UK_AIR,
+  #                    title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) UK-AIR : </strong>",
+  #                 labFormat = labelFormat(prefix = ""),
+  #                 opacity = 1) %>%
   
   # PM2.5 pcm
   addPolygons(stroke = TRUE, smoothFactor = 0.2, 
@@ -557,12 +599,13 @@ map = map_PM25_sat %>%
                  group = "URBAN fraction") %>%
 
   # PM25_SAT raster
-  addRasterImage(PM25_EN_SAT_nc, colors = pal_PM25_SAT, opacity = 0.6,
-                 group = "PM2.5 Sat. rast.(MODIS)") %>%
-  addLegend("bottomright",pal = pal_PM25_SAT, values = values(PM25_EN_SAT_nc),
-            title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) MODIS (2009-2011) : </strong>",
-                    labFormat = labelFormat(prefix = ""),
-                    opacity = 0.6) %>%
+#   addRasterImage(PM25_EN_SAT_nc, colors = pal_PM25_SAT, opacity = 0.6,
+#                  group = "PM2.5 Satellite (MODIS) rast. 10km") %>%
+  
+#   addLegend("bottomright",pal = pal_PM25_SAT, values = values(PM25_EN_SAT_nc),
+#             title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) MODIS (2009-2011) : </strong>",
+#                     labFormat = labelFormat(prefix = ""),
+#                     opacity = 0.6) %>%
 
   # PM25_UK_AIR raster
   addRasterImage(PM25_UK_AIR_nc, colors = pal_PM25_UK_AIR, opacity = 0.6,
@@ -573,17 +616,28 @@ map = map_PM25_sat %>%
 #             opacity = 0.6) %>%
   
   # GWR_10km raster
-  addRasterImage(GWR_PM25_10km_nc, colors = pal_GWR_rast_10km, opacity = 0.6,
-                 group = "GWR PM2.5. rast. 10km") %>%
+ # addRasterImage(GWR_PM25_10km_nc, colors = pal_GWR_rast_10km, opacity = 0.6,
+  #               group = "GWR PM2.5 rast. 10km") %>%
   # GWR_1km raster
-  addRasterImage(GWR_PM25_1km_nc, colors = pal_GWR_rast_1km, opacity = 0.6,
-                 group = "GWR PM2.5. rast. 1km") %>%
-  # pcm_PM25_raster
+#  addRasterImage(GWR_PM25_1km_nc, colors = pal_GWR_rast_1km, opacity = 0.6,
+ #                group = "GWR PM2.5 rast. 1km") %>%
+  
+  # AVG GWR_1km rasterm new from Donkelaar (2016)
+  addRasterImage(AVG_GWR_PM25_nc, colors = pal_AVG_GWR_PM25_1km, opacity = 0.6,
+                 group = "GWR PM2.5 (Donkelaar et al. 2016) rast. 1km") %>%
+     addLegend("bottomright",pal = pal_AVG_GWR_PM25_1km, values = values(AVG_GWR_PM25_nc),
+               title = "<br><strong>PM<sub>2.5</sub> (<font face=symbol>m</font>g/m<sup>3</sup>) GWR MODIS (2009-2011) : </strong>",
+               labFormat = labelFormat(prefix = ""),
+               opacity = 0.6) %>%
+  
+    # pcm_PM25_raster
   addRasterImage(pcm_PM25_nc, colors = pal_pcm_PM25_rast, opacity = 0.6,
                  group = "PCM model PM2.5 rast.") %>%
+  
   # cmaq_PM25_raster 10km
-  addRasterImage(cmaq_PM25_10km_nc, colors = pal_cmaq_PM25_rast_10km, opacity = 0.5,
-                 group = "CMAQ model PM2.5 rast. 10km") %>%
+#   addRasterImage(cmaq_PM25_10km_nc, colors = pal_cmaq_PM25_rast_10km, opacity = 0.5,
+#                  group = "CMAQ model PM2.5 rast. 10km") %>%
+  
   # cmaq_PM25_raster 1km
   addRasterImage(cmaq_PM25_1km_nc, colors = pal_cmaq_PM25_rast_1km, opacity = 0.6,
                  group = "CMAQ model PM2.5 rast. 1km") %>%
@@ -596,24 +650,29 @@ map = map_PM25_sat %>%
   # Layers control
   addLayersControl(
     baseGroups = c("Road map", "Topographical", "Satellite", "Toner Lite"),
-    overlayGroups = c("PM2.5 Satellite (MODIS)", "PM2.5 UK AIR", "GWR PM2.5",
+    overlayGroups = c("GWR PM2.5 (1km) (Donkelaar 2016)", 
+                       "PM2.5 UK AIR",
+                      "GWR PM2.5 (Donkelaar et al. 2016) rast. 1km" ,
                       "PMC PM2.5 model", "URBAN fraction", "CMAQ PM2.5 model",
-                      "GWR PM2.5. rast. 10km","GWR PM2.5. rast. 1km",
-                      "PM2.5 Sat. rast.(MODIS)", "PM2.5 UK-AIR rast.",
-                      "PCM model PM2.5 rast.", "CMAQ model PM2.5 rast. 10km",
+                      # "GWR PM2.5 rast. 10km","GWR PM2.5 rast. 1km",
+                        "PM2.5 UK-AIR rast.",
+                      "PCM model PM2.5 rast.",
                       "CMAQ model PM2.5 rast. 1km"),
+
     options = layersControlOptions(collapsed = FALSE)) %>%
+ # hideGroup("GWR PM2.5 (1km) (Donkelaar 2016)") %>%
   hideGroup("PM2.5 UK AIR") %>%
-  hideGroup("GWR PM2.5") %>%
+ # hideGroup("GWR PM2.5") %>%
   hideGroup("PMC PM2.5 model") %>%
   hideGroup("CMAQ PM2.5 model") %>%
   hideGroup("URBAN fraction") %>%
-  hideGroup("GWR PM2.5. rast. 10km") %>%
-  hideGroup("GWR PM2.5. rast. 1km") %>%
-  hideGroup("PM2.5 Sat. rast.(MODIS)") %>%
+#  hideGroup("GWR PM2.5 rast. 10km") %>%
+#  hideGroup("GWR PM2.5 rast. 1km") %>%
+  hideGroup("GWR PM2.5 (Donkelaar et al. 2016) rast. 1km") %>%
+  hideGroup("PM2.5 Satellite (MODIS) rast. 10km") %>%
   hideGroup("PM2.5 UK-AIR rast.") %>%
   hideGroup("PCM model PM2.5 rast.") %>%
-  hideGroup("CMAQ model PM2.5 rast. 10km") %>%
+#  hideGroup("CMAQ model PM2.5 rast. 10km") %>%
   hideGroup("CMAQ model PM2.5 rast. 1km") 
 
 map
@@ -626,3 +685,61 @@ map
             file="England_PM25_Sat_new.html",
             selfcontained = FALSE)
 
+ 
+ ######## NEW RESULTS from GWR of Donkellar 2016 - global runs ###########
+ #########################################################################
+ 
+ PM25_2009_nc <- raster("GlobalGWR_PM25_GL_200901_200912-RH35.nc")
+ PM25_2010_nc <- raster("GlobalGWR_PM25_GL_201001_201012-RH35.nc")
+ PM25_2011_nc <- raster("GlobalGWR_PM25_GL_201101_201112-RH35.nc")
+ 
+ #plot(PM25_2009_nc)
+ #plot(shp, add=TRUE, lwd=1)
+ 
+ 
+ ### crop raster over the UK shp file  ###############################
+ 
+ PM25_2009_nc_cropped <- crop(PM25_2009_nc, extent(shp))
+ PM25_2009_nc_cropped <- mask(PM25_2009_nc_cropped, shp)
+ 
+ PM25_2010_nc_cropped <- crop(PM25_2010_nc, extent(shp))
+ PM25_2010_nc_cropped <- mask(PM25_2010_nc_cropped, shp)
+ 
+ PM25_2011_nc_cropped <- crop(PM25_2011_nc, extent(shp))
+ PM25_2011_nc_cropped <- mask(PM25_2011_nc_cropped, shp)
+ 
+ plot(PM25_2009_nc_cropped)
+ plot(shp, add=TRUE, lwd=2)
+ 
+ 
+ ### Exctract poitns from raster ######################################
+ 
+ PM25_2009_GWR <- rasterToPoints(PM25_2009_nc_cropped)
+ head(PM25_2009_GWR)
+ colnames(PM25_2009_GWR) <- c("Lon", "Lat", "PM25_2009")
+ PM25_2009_GWR <- as.data.frame (PM25_2009_GWR)
+ PM25_2009_GWR <- subset(PM25_2009_GWR, !is.na(PM25_2009) & PM25_2009>0)
+ write.csv(PM25_2009_GWR, file = "PM25_2009_GWR_Donkelaar.csv", row.names=FALSE)
+ 
+ PM25_2010_GWR <- rasterToPoints(PM25_2010_nc_cropped)
+ head(PM25_2010_GWR)
+ colnames(PM25_2010_GWR) <- c("Lon", "Lat", "PM25_2010")
+ PM25_2010_GWR <- as.data.frame (PM25_2010_GWR)
+ PM25_2010_GWR <- subset(PM25_2010_GWR, !is.na(PM25_2010) & PM25_2010>0)
+ write.csv(PM25_2010_GWR, file = "PM25_2010_GWR_Donkelaar.csv", row.names=FALSE)
+ 
+ PM25_2011_GWR <- rasterToPoints(PM25_2011_nc_cropped)
+ head(PM25_2011_GWR)
+ colnames(PM25_2011_GWR) <- c("Lon", "Lat", "PM25_2011")
+ PM25_2011_GWR <- as.data.frame (PM25_2011_GWR)
+ PM25_2011_GWR <- subset(PM25_2011_GWR, !is.na(PM25_2011) & PM25_2011>0)
+ write.csv(PM25_2011_GWR, file = "PM25_2011_GWR_Donkelaar.csv", row.names=FALSE)
+ 
+ 
+ ###### Average data data by column (each year year) ######################
+ 
+ GWR_PM25_2009_2011 <- cbind(PM25_2009_GWR, PM25_2010_GWR[,3], PM25_2011_GWR[,3])
+ AVG_GWR_PM25_2009_2011 <- rowMeans(GWR_PM25_2009_2011[3:5], na.rm=FALSE)
+ AVG_GWR_PM25 <- cbind(GWR_PM25_2009_2011[,1:2],AVG_GWR_PM25_2009_2011)
+ 
+ write.csv(AVG_GWR_PM25, file = "AVG_GWR_PM25.csv", row.names= FALSE)
