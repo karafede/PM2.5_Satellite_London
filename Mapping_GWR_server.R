@@ -23,8 +23,8 @@ library(mapview)
 
 # dir <- "/SAN/data/Satellite_PM25/UK_shp"
 
-setwd("C:/RICARDO-AEA/Donkelaar_1Km/server")
-dir <- "C:/RICARDO-AEA/Donkelaar_1Km/server"
+setwd("C:/SATELLITE_STUFF/Donkelaar_1Km/server")
+dir <- "C:/SATELLITE_STUFF/Donkelaar_1Km/server"
 
 ### shapefile for local authorities in England
 shp <- readOGR(dsn = dir, layer = "EN_Wales")
@@ -371,7 +371,7 @@ shp <- SpatialPolygonsDataFrame(shp, data=Sat_data_points)
 # ----- Write data to GeoJSON
 
 dir <- "/SAN/data/Satellite_PM25"
-dir <- "C:/RICARDO-AEA/Donkelaar_1Km/server"
+dir <- "C:/SATELLITE_STUFF/Donkelaar_1Km/server"
 leafdat<-paste(dir, "/",  ".ENGLAND_geojson_PM25_1km_Sat_2009_2011", sep="") 
 
 ####  ATT !!!!! erase existing .geojson file when re-runing code ######
