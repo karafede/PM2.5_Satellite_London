@@ -1,8 +1,8 @@
-<strong>Last Version of Geographycally Weighted Regression (GWR) PM2.5 from satellite
+<strong>Last Version of Geographycally Weighted Regression (GWR) PM2.5 from satellite<br>
 <strong>England & Wales</strong><br>
 https://karafede.shinyapps.io/Shiny_London/
 
-<strong>Older Version of Geographycally Weighted Regression (GWR) PM2.5 from satellite (only Leafleft)
+<strong>Older Version of Geographycally Weighted Regression (GWR) PM2.5 from satellite (only Leafleft)<br>
 <strong>London</strong><br>
 https://rawgit.com/karafede/PM2.5_Satellite_London/master/GWR_London.html
 
